@@ -22,7 +22,7 @@ CROSS JOIN (VALUES
 ('Monday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
 ('Monday', '13:00', '16:00', 'Golang & Backend'),
 ('Monday', '16:00', '17:00', 'Olahraga'),
-('Monday', '19:00', '20:00', 'English'),
+('Monday', '17:00', '20:00', 'English'),
 ('Monday', '20:00', '21:00', 'Cyber Security'),
 ('Monday', '21:00', '22:00', 'Web Development'),
 ('Monday', '22:00', '23:00', 'AI Engineer'),
