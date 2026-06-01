@@ -11,7 +11,7 @@ WITH u AS (
 )
 
 INSERT INTO schedules (user_id, day_of_week, start_time, end_time, activity)
-SELECT u.id, v.day_of_week, v.start_time, v.end_time, v.activity
+SELECT u.id, v.day_of_week, v.start_time::time, v.end_time::time, v.activity
 FROM u
 CROSS JOIN (VALUES
 
