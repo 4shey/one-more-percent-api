@@ -15,6 +15,8 @@ FROM alpine:latest
 
 WORKDIR /root/
 
+RUN apk add --no-cache tzdata
+
 COPY --from=builder /app/main .
 COPY --from=builder /app/database ./database
 
