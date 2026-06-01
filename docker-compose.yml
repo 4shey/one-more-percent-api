@@ -1,0 +1,56 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: one_more_percent_app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17.5-alpine3.22
+    container_name: one_more_percent_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omp
+      POSTGRES_PASSWORD: omp123
+      POSTGRES_DB: onemorepercent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omp -d onemorepercent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    container_name: one_more_percent_migrate
+    profiles:
+      - tools
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./database/migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://omp:omp123@db:5432/onemorepercent?sslmode=disable",
+        "up"
+      ]
+
+volumes:
+  postgres_data:
