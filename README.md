@@ -1,7 +1,7 @@
-# One More Percent 🚀
+# One More Percent
 
-> Bot Telegram personal untuk tracking progress harian Ambatukam.  
-> Reminder otomatis, deteksi completion via AI, ingatan percakapan, dan recap tengah malam.
+> Bot Telegram personal untuk tracking progress harian.  
+> Reminder otomatis, deteksi completion via AI.
 
 ---
 
@@ -34,7 +34,7 @@ one_more_percent/
 │   │
 │   ├── models/
 │   │   ├── schedule.go                  # Struct Schedule
-│   │   └── progress.go                  # Struct ScheduleProgress (dengan joined fields)
+│   │   └── progress.go                  # Struct ScheduleProgress
 │   │
 │   ├── services/
 │   │   ├── ai_service.go                # callGroq, AskAI, DetectCompletion, GenerateReminder,
@@ -63,10 +63,9 @@ one_more_percent/
 │   │   └── 000003_create_schedule_progresses.down.sql
 │   │
 │   └── seeders/
-│       └── seed_schedules.sql           # User Ambatukam + jadwal Senin
+│       └── seed_schedules.sql           # User + jadwal Senin
 │
 ├── .air.toml                            # Konfigurasi hot reload
-├── .env                                 # Environment variables (tidak di-commit)
 ├── docker-compose.yml
 ├── Dockerfile
 ├── go.mod
@@ -92,7 +91,7 @@ CREATE TABLE users (
 CREATE TABLE schedules (
     id          SERIAL PRIMARY KEY,
     user_id     INT NOT NULL REFERENCES users(id),
-    day_of_week VARCHAR(10) NOT NULL,   -- "Monday" | "Tuesday" | dst
+    day_of_week VARCHAR(10) NOT NULL,
     start_time  TIME NOT NULL,
     end_time    TIME NOT NULL,
     activity    VARCHAR(100) NOT NULL,
@@ -108,12 +107,11 @@ CREATE TABLE schedule_progresses (
     schedule_id   INT NOT NULL REFERENCES schedules(id),
     progress_date DATE NOT NULL,
     status        VARCHAR(20) NOT NULL DEFAULT 'pending',
-    --            ↑ pending | completed | missed
     completed_at  TIMESTAMP NULL,
     created_at    TIMESTAMP DEFAULT NOW(),
     updated_at    TIMESTAMP DEFAULT NOW(),
 
-    UNIQUE(schedule_id, progress_date)   -- 1 jadwal = 1 row per hari
+    UNIQUE(schedule_id, progress_date)
 );
 ```
 
@@ -229,19 +227,6 @@ AskAI(chatID, message)
     └─ AddMessage(chatID, "assistant", reply)
 ```
 
-**Contoh messages yang dikirim ke Groq:**
-```
-[system]    Kamu adalah One More Percent, asisten Ambatukam.
-            Ambatukam adalah mahasiswa yang mengejar kerja remote.
-            [Konteks: Sekarang jadwal aktif adalah 'Tidur' (01:00-05:00).]
-
-[user]      halo bang
-[assistant] halo! lagi tidur atau belum?
-[user]      belum, masih scrolling
-[assistant] ya ampun bang, tidur dulu sana 😴
-[user]      iya deh          ← pesan sekarang
-```
-
 ---
 
 ### E. Midnight Recap (00:00 WIB)
@@ -262,17 +247,6 @@ runMidnightRecap(yesterday)
 ```
 
 **Contoh output recap:**
-```
-hari ini lumayan bang 😼
-
-✅ tidur
-✅ english
-✅ golang
-❌ portfolio
-
-3 dari 4 selesai.
-ga perfect gapapa, besok lanjut lagi
-one more percent 🚀
 ```
 
 ---
@@ -320,30 +294,9 @@ GetHistory(chatID) []Message       → ambil salinan history
 
 ---
 
-## Environment Variables (`.env`)
-
-```env
-# Telegram
-BOT_TOKEN=<telegram_bot_token>
-TELEGRAM_CHAT_ID=<your_telegram_chat_id>
-
-# Database
-DB_HOST=db
-DB_PORT=5432
-DB_USER=omp
-DB_PASSWORD=omp123
-DB_NAME=onemorepercent
-
-# AI — Groq
-MODEL_TOKEN=<groq_api_key>
-MODEL_NAME=llama-3.3-70b-versatile
-```
-
----
-
 ## Setup & Menjalankan
 
-### Prasyarat
+### Syarat
 
 - Docker & Docker Compose
 - Telegram Bot Token → [BotFather](https://t.me/BotFather)
