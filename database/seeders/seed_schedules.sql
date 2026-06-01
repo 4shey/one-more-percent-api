@@ -1,96 +1,102 @@
 -- =============================================================
--- Seed: One More Percent
--- User: Ambatukam | Mahasiswa yang mengejar kerja remote
+-- SEED: ONE MORE PERCENT (FIXED VERSION)
 -- =============================================================
 
--- 1. User
-INSERT INTO users (telegram_id, name) VALUES (6616220735, 'Ambatukam') ON CONFLICT (telegram_id) DO UPDATE SET name = EXCLUDED.name;
+WITH u AS (
+    INSERT INTO users (telegram_id, name)
+    VALUES (6616220735, 'Ambatukam')
+    ON CONFLICT (telegram_id)
+    DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+)
 
--- 2. Jadwal Senin (Monday)
-INSERT INTO schedules ( user_id, day_of_week, start_time, end_time, activity ) VALUES
--- =============================================================
--- Monday
--- =============================================================
-(1, 'Monday', '04:30', '06:00', 'Olahraga'),
-(1, 'Monday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
-(1, 'Monday', '13:00', '16:00', 'Golang & Backend'),
-(1, 'Monday', '16:00', '17:00', 'Olahraga'),
-(1, 'Monday', '19:00', '20:00', 'English'),
-(1, 'Monday', '20:00', '21:00', 'Cyber Security'),
-(1, 'Monday', '21:00', '22:00', 'Web Development'),
-(1, 'Monday', '22:00', '23:00', 'AI Engineer'),
+INSERT INTO schedules (user_id, day_of_week, start_time, end_time, activity)
+SELECT u.id, v.day_of_week, v.start_time, v.end_time, v.activity
+FROM u
+CROSS JOIN (VALUES
 
 -- =============================================================
--- Tuesday
+-- MONDAY
 -- =============================================================
-(1, 'Tuesday', '04:30', '06:00', 'Olahraga'),
-(1, 'Tuesday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
-(1, 'Tuesday', '13:00', '16:00', 'Web Development'),
-(1, 'Tuesday', '16:00', '17:00', 'Olahraga'),
-(1, 'Tuesday', '19:00', '20:00', 'English'),
-(1, 'Tuesday', '20:00', '21:00', 'Data Science'),
-(1, 'Tuesday', '21:00', '22:00', 'Cyber Security'),
-(1, 'Tuesday', '22:00', '23:00', 'AI Engineer'),
+('Monday', '04:30', '06:00', 'Olahraga'),
+('Monday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
+('Monday', '13:00', '16:00', 'Golang & Backend'),
+('Monday', '16:00', '17:00', 'Olahraga'),
+('Monday', '19:00', '20:00', 'English'),
+('Monday', '20:00', '21:00', 'Cyber Security'),
+('Monday', '21:00', '22:00', 'Web Development'),
+('Monday', '22:00', '23:00', 'AI Engineer'),
 
 -- =============================================================
--- Wednesday
+-- TUESDAY
 -- =============================================================
-(1, 'Wednesday', '04:30', '06:00', 'Olahraga'),
-(1, 'Wednesday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
-(1, 'Wednesday', '13:00', '16:00', 'Data Science'),
-(1, 'Wednesday', '16:00', '17:00', 'Olahraga'),
-(1, 'Wednesday', '19:00', '20:00', 'English'),
-(1, 'Wednesday', '20:00', '21:00', 'Web Development'),
-(1, 'Wednesday', '21:00', '22:00', 'Cyber Security'),
-(1, 'Wednesday', '22:00', '23:00', 'AI Engineer'),
+('Tuesday', '04:30', '06:00', 'Olahraga'),
+('Tuesday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
+('Tuesday', '13:00', '16:00', 'Web Development'),
+('Tuesday', '16:00', '17:00', 'Olahraga'),
+('Tuesday', '19:00', '20:00', 'English'),
+('Tuesday', '20:00', '21:00', 'Data Science'),
+('Tuesday', '21:00', '22:00', 'Cyber Security'),
+('Tuesday', '22:00', '23:00', 'AI Engineer'),
 
 -- =============================================================
--- Thursday
+-- WEDNESDAY
 -- =============================================================
-(1, 'Thursday', '04:30', '06:00', 'Olahraga'),
-(1, 'Thursday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
-(1, 'Thursday', '13:00', '16:00', 'AI Engineer'),
-(1, 'Thursday', '16:00', '17:00', 'Olahraga'),
-(1, 'Thursday', '19:00', '20:00', 'English'),
-(1, 'Thursday', '20:00', '21:00', 'Cyber Security'),
-(1, 'Thursday', '21:00', '22:00', 'Web Development'),
-(1, 'Thursday', '22:00', '23:00', 'Data Science'),
+('Wednesday', '04:30', '06:00', 'Olahraga'),
+('Wednesday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
+('Wednesday', '13:00', '16:00', 'Data Science'),
+('Wednesday', '16:00', '17:00', 'Olahraga'),
+('Wednesday', '19:00', '20:00', 'English'),
+('Wednesday', '20:00', '21:00', 'Web Development'),
+('Wednesday', '21:00', '22:00', 'Cyber Security'),
+('Wednesday', '22:00', '23:00', 'AI Engineer'),
 
 -- =============================================================
--- Friday
+-- THURSDAY
 -- =============================================================
-(1, 'Friday', '04:30', '06:00', 'Olahraga'),
-(1, 'Friday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
-(1, 'Friday', '13:00', '16:00', 'Cyber Security'),
-(1, 'Friday', '16:00', '17:00', 'Olahraga'),
-(1, 'Friday', '19:00', '20:00', 'English'),
-(1, 'Friday', '20:00', '21:00', 'AI Engineer'),
-(1, 'Friday', '21:00', '22:00', 'Web Development'),
-(1, 'Friday', '22:00', '23:00', 'Data Science'),
+('Thursday', '04:30', '06:00', 'Olahraga'),
+('Thursday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
+('Thursday', '13:00', '16:00', 'AI Engineer'),
+('Thursday', '16:00', '17:00', 'Olahraga'),
+('Thursday', '19:00', '20:00', 'English'),
+('Thursday', '20:00', '21:00', 'Cyber Security'),
+('Thursday', '21:00', '22:00', 'Web Development'),
+('Thursday', '22:00', '23:00', 'Data Science'),
 
 -- =============================================================
--- Saturday
+-- FRIDAY
 -- =============================================================
-(1, 'Saturday', '04:30', '06:00', 'Olahraga'),
-(1, 'Saturday', '07:00', '11:30', 'Project / Deep Work'),
-(1, 'Saturday', '13:00', '16:00', 'Portfolio & Project'),
-(1, 'Saturday', '16:00', '17:00', 'Olahraga'),
-(1, 'Saturday', '19:00', '20:00', 'English'),
-(1, 'Saturday', '20:00', '21:00', 'Cyber Security'),
-(1, 'Saturday', '21:00', '22:00', 'AI Engineer'),
-(1, 'Saturday', '22:00', '23:00', 'Web Development'),
+('Friday', '04:30', '06:00', 'Olahraga'),
+('Friday', '07:00', '11:30', 'Kuliah / Belajar Produktif'),
+('Friday', '13:00', '16:00', 'Cyber Security'),
+('Friday', '16:00', '17:00', 'Olahraga'),
+('Friday', '19:00', '20:00', 'English'),
+('Friday', '20:00', '21:00', 'AI Engineer'),
+('Friday', '21:00', '22:00', 'Web Development'),
+('Friday', '22:00', '23:00', 'Data Science'),
 
 -- =============================================================
--- Sunday
+-- SATURDAY
 -- =============================================================
-(1, 'Sunday', '04:30', '06:00', 'Olahraga'),
-(1, 'Sunday', '07:00', '11:30', 'Review Mingguan / Belajar'),
-(1, 'Sunday', '13:00', '16:00', 'Portfolio & Planning'),
-(1, 'Sunday', '16:00', '17:00', 'Olahraga'),
-(1, 'Sunday', '19:00', '20:00', 'English'),
-(1, 'Sunday', '20:00', '21:00', 'Data Science'),
-(1, 'Sunday', '21:00', '22:00', 'Cyber Security'),
-(1, 'Sunday', '22:00', '23:00', 'AI Engineer')
+('Saturday', '04:30', '06:00', 'Olahraga'),
+('Saturday', '07:00', '11:30', 'Project / Deep Work'),
+('Saturday', '13:00', '16:00', 'Portfolio & Project'),
+('Saturday', '16:00', '17:00', 'Olahraga'),
+('Saturday', '19:00', '20:00', 'English'),
+('Saturday', '20:00', '21:00', 'Cyber Security'),
+('Saturday', '21:00', '22:00', 'AI Engineer'),
+('Saturday', '22:00', '23:00', 'Web Development'),
 
-ON CONFLICT DO NOTHING;
-```
+-- =============================================================
+-- SUNDAY
+-- =============================================================
+('Sunday', '04:30', '06:00', 'Olahraga'),
+('Sunday', '07:00', '11:30', 'Review Mingguan / Belajar'),
+('Sunday', '13:00', '16:00', 'Portfolio & Planning'),
+('Sunday', '16:00', '17:00', 'Olahraga'),
+('Sunday', '19:00', '20:00', 'English'),
+('Sunday', '20:00', '21:00', 'Data Science'),
+('Sunday', '21:00', '22:00', 'Cyber Security'),
+('Sunday', '22:00', '23:00', 'AI Engineer')
+
+) AS v(day_of_week, start_time, end_time, activity);
