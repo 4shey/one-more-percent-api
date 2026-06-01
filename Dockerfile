@@ -1,16 +1,22 @@
-FROM golang:1.26.3-alpine
+FROM golang:1.26.3-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache git bash curl
-
-RUN go install github.com/air-verse/air@v1.61.7
+RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
+RUN go build -o main .
+
+FROM alpine:latest
+
+WORKDIR /root/
+
+COPY --from=builder /app/main .
+
 EXPOSE 8080
 
-CMD ["air", "-c", ".air.toml"]
+CMD ["./main"]
