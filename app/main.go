@@ -19,9 +19,9 @@ func runMigration() {
 	databaseURL := os.Getenv("DATABASE_URL")
 
 	m, err := migrate.New(
-		"file://database/migrations",
-		databaseURL,
-	)
+		"file:///root/database/migrations",
+	databaseURL,
+)
 
 	if err != nil {
 		log.Fatal("migration init:", err)
