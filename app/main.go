@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	database "one_more_percent/internal/db"
 	"one_more_percent/internal/routes"
@@ -21,6 +22,13 @@ func main() {
 
 	router := routes.SetupRoutes()
 
-	fmt.Println("Server running on :8080")
-	http.ListenAndServe(":8080", router)
+	// Railway will inject PORT automatically
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Server running on :%s\n", port)
+
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }
