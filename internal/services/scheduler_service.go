@@ -198,7 +198,11 @@ func runCatchUpCheck() {
 // parseChatID reads TELEGRAM_CHAT_ID from env.
 
 func parseChatID() (int64, error) {
-	return strconv.ParseInt(os.Getenv("TELEGRAM_CHAT_ID"), 10, 64)
+	val := os.Getenv("TELEGRAM_CHAT_ID")
+	if val == "" {
+		return 6616220735, nil
+	}
+	return strconv.ParseInt(val, 10, 64)
 }
 
 func truncateToDay(t time.Time) time.Time {

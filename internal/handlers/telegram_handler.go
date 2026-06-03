@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"one_more_percent/internal/services"
 )
@@ -70,11 +71,18 @@ func TelegramWebhookHandler(
 
 	fmt.Println("AI Reply:", reply)
 
-	err = services.SendTelegramMessage(chatID, reply)
-	if err != nil {
-		fmt.Println("telegram send error:", err)
-	} else {
-		fmt.Println("message sent")
+	parts := strings.Split(reply, "|||")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		err = services.SendTelegramMessage(chatID, part)
+		if err != nil {
+			fmt.Println("telegram send error:", err)
+		} else {
+			fmt.Println("message sent:", part)
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)

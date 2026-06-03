@@ -9,6 +9,7 @@ import (
 	database "one_more_percent/internal/db"
 	"one_more_percent/internal/routes"
 	"one_more_percent/internal/services"
+	_ "time/tzdata"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
