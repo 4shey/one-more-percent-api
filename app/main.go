@@ -37,12 +37,32 @@ func runMigration() {
 	fmt.Println("Migration completed ✓")
 }
 
+func runSeed() {
+	var count int
+	err := database.DB.QueryRow("SELECT COUNT(*) FROM schedules").Scan(&count)
+	if err == nil && count == 0 {
+		fmt.Println("Database is empty, running seeder...")
+		seedBytes, err := os.ReadFile("./database/seeders/seed_schedules.sql")
+		if err == nil {
+			_, err = database.DB.Exec(string(seedBytes))
+			if err != nil {
+				fmt.Println("Seeder failed:", err)
+			} else {
+				fmt.Println("Seeder completed ✓")
+			}
+		} else {
+			fmt.Println("Failed to read seeder file:", err)
+		}
+	}
+}
+
 func main() {
 	if err := database.Connect(); err != nil {
 		log.Fatal("DB connection failed:", err)
 	}
 
 	runMigration()
+	runSeed()
 
 	services.StartScheduler()
 

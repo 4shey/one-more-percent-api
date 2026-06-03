@@ -51,6 +51,13 @@ func StartScheduler() {
 		jakartaLoc = time.UTC
 	}
 
+	// Send Startup Message
+	if chatID, err := parseChatID(); err == nil {
+		msg := "Woi gw udah nyala nih (baru di-deploy). Coba cek jadwal lu sekarang ada apa ngga. Jangan males-malesan!"
+		_ = SendTelegramMessage(chatID, msg)
+		fmt.Println("[Scheduler] Startup greeting sent")
+	}
+
 	go func() {
 		// Align to the next minute boundary so checks fire on :00 seconds.
 		now := time.Now().In(jakartaLoc)

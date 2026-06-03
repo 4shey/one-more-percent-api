@@ -11,7 +11,7 @@ import (
 // GetSchedulesForDay returns all active schedules for a given day name (e.g. "Monday").
 func GetSchedulesForDay(day string) ([]models.Schedule, error) {
 	rows, err := db.DB.Query(`
-		SELECT id, user_id, day_of_week,
+		SELECT id, day_of_week,
 		       TO_CHAR(start_time, 'HH24:MI'),
 		       TO_CHAR(end_time, 'HH24:MI'),
 		       activity, is_active
@@ -28,7 +28,7 @@ func GetSchedulesForDay(day string) ([]models.Schedule, error) {
 	for rows.Next() {
 		var s models.Schedule
 		if err := rows.Scan(
-			&s.ID, &s.UserID, &s.DayOfWeek,
+			&s.ID, &s.DayOfWeek,
 			&s.StartTime, &s.EndTime, &s.Activity, &s.IsActive,
 		); err != nil {
 			return nil, err
@@ -107,7 +107,7 @@ func GetDayProgress(date time.Time) (completed []models.ScheduleProgress, missed
 func GetActiveSchedule(dayName, currentHHMM string) (*models.Schedule, error) {
 	var s models.Schedule
 	err := db.DB.QueryRow(`
-		SELECT id, user_id, day_of_week,
+		SELECT id, day_of_week,
 		       TO_CHAR(start_time, 'HH24:MI'),
 		       TO_CHAR(end_time, 'HH24:MI'),
 		       activity, is_active
@@ -119,7 +119,7 @@ func GetActiveSchedule(dayName, currentHHMM string) (*models.Schedule, error) {
 		ORDER BY start_time
 		LIMIT 1
 	`, dayName, currentHHMM).Scan(
-		&s.ID, &s.UserID, &s.DayOfWeek,
+		&s.ID, &s.DayOfWeek,
 		&s.StartTime, &s.EndTime, &s.Activity, &s.IsActive,
 	)
 	if err == sql.ErrNoRows {

@@ -2,18 +2,9 @@
 -- SEED: ONE MORE PERCENT (FIXED VERSION)
 -- =============================================================
 
-WITH u AS (
-    INSERT INTO users (telegram_id, name)
-    VALUES (6616220735, 'Ambatukam')
-    ON CONFLICT (telegram_id)
-    DO UPDATE SET name = EXCLUDED.name
-    RETURNING id
-)
-
-INSERT INTO schedules (user_id, day_of_week, start_time, end_time, activity)
-SELECT u.id, v.day_of_week, v.start_time::time, v.end_time::time, v.activity
-FROM u
-CROSS JOIN (VALUES
+INSERT INTO schedules (day_of_week, start_time, end_time, activity)
+SELECT v.day_of_week, v.start_time::time, v.end_time::time, v.activity
+FROM (VALUES
 
 -- =============================================================
 -- MONDAY
