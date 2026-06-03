@@ -1,59 +1,168 @@
 # One More Percent
 
-Bot Telegram personal berbasis AI untuk melacak progres harian kamu. Bot ini otomatis mengingatkan jadwalmu dan mendeteksi apakah suatu tugas sudah selesai atau belum melalui obrolan biasa (natural language).
+Personal Telegram bot berbasis AI untuk membantu memantau progres harian melalui pengingat otomatis dan percakapan natural.
 
-## Fitur Utama
-- **Auto-Reminder**: Notifikasi Telegram otomatis sesuai jadwal yang kamu tentukan.
-- **AI Completion**: Bot paham bahasa manusia. Cukup bilang "udah kelar" atau "baru selesai", jadwalmu akan otomatis ditandai selesai.
-- **Context-Aware AI**: Asisten AI tahu jadwalmu saat ini dan merespons obrolan sesuai konteks dengan persona yang fokus pada produktivitas.
-- **Daily Recap**: Setiap tengah malam (00:00 WIB), bot mengirim rangkuman jadwal yang berhasil dan gagal dikerjakan.
+Bot dapat mengingatkan jadwal, memahami respon, lalu mencatat progres secara otomatis tanpa perintah khusus.
 
-## Tech Stack
-- **Go 1.26** & `net/http`
-- **PostgreSQL 17.5** (`lib/pq` & `golang-migrate`)
-- **Telegram Bot API** (`go-telegram-bot-api/v5`)
-- **Groq API** (`llama-3.3-70b-versatile`) untuk asisten AI
-- **Docker & Docker Compose**
+---
 
-## Cara Menjalankan (via Docker)
+## Table of Contents
 
-1. **Persiapan Environment**
-   Copy file `.env.example` dan isi konfigurasinya (terutama Token Bot, ID Telegram, dan API Key Groq).
-   ```bash
-   cp .env.example .env
-   ```
+* [Fitur](#fitur)
+* [Teknologi](#teknologi)
+* [Menjalankan Project](#menjalankan-project)
+* [Mengelola Jadwal](#mengelola-jadwal)
+* [Contoh Interaksi](#contoh-interaksi)
 
-2. **Jalankan Database & Migrasi**
-   ```bash
-   docker compose up -d db
-   docker compose --profile tools run --rm migrate
-   ```
+---
 
-3. **Isi Data Awal (Opsional)**
-   ```bash
-   docker compose exec -T db psql -U omp -d onemorepercent < database/seeders/seed_schedules.sql
-   ```
+## Fitur
 
-4. **Jalankan Aplikasi**
-   ```bash
-   docker compose up -d app
-   ```
+* Pengingat otomatis berdasarkan jadwal
+* Deteksi penyelesaian tugas melalui percakapan biasa
+* AI memahami konteks jadwal aktif
+* Rekap aktivitas harian setiap pukul `00:00 WIB`
 
-5. **Set Webhook Telegram**
-   Pastikan port 8080 terhubung ke internet (bisa menggunakan domain atau ngrok) lalu set webhook:
-   ```bash
-   curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" -d "url=https://<your-domain>/webhook"
-   ```
+---
+
+## Teknologi
+
+| Component      | Stack                                |
+| -------------- | ------------------------------------ |
+| Backend        | Go 1.26                              |
+| Database       | PostgreSQL 17.5                      |
+| AI             | Groq API (`llama-3.3-70b-versatile`) |
+| Messaging      | Telegram Bot API                     |
+| Infrastructure | Docker & Docker Compose              |
+| Migration      | Golang Migrate                       |
+
+---
+
+## Menjalankan Project
+
+### 1. Salin file environment
+
+```bash
+cp .env.example .env
+```
+
+Setelah itu, sesuaikan konfigurasi pada file `.env`.
+
+Konfigurasi yang perlu diperhatikan:
+
+* Telegram Bot Token
+* Telegram User ID
+* Groq API Key
+* Database configuration
+
+### 2. Jalankan database
+
+```bash
+docker compose up -d db
+```
+
+### 3. Jalankan migration
+
+```bash
+docker compose --profile tools run --rm migrate
+```
+
+Migration digunakan untuk membuat struktur tabel pada database.
+
+### 4. Tambahkan data awal (opsional)
+
+```bash
+docker compose exec -T db psql -U omp -d onemorepercent < database/seeders/seed_schedules.sql
+```
+
+Langkah ini bersifat opsional jika ingin langsung menggunakan data contoh.
+
+### 5. Jalankan aplikasi
+
+```bash
+docker compose up -d app
+```
+
+Untuk melihat log aplikasi:
+
+```bash
+docker compose logs -f app
+```
+
+### 6. Set webhook Telegram
+
+Pastikan aplikasi dapat diakses dari internet menggunakan domain, reverse proxy, atau tunnel.
+
+Kemudian jalankan:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+-d "url=https://your-domain.com/webhook"
+```
+
+Contoh:
+
+```bash
+curl -X POST "https://api.telegram.org/bot123456:ABCDEF/setWebhook" \
+-d "url=https://example.com/webhook"
+```
+
+---
 
 ## Mengelola Jadwal
 
-Saat ini manajemen jadwal dilakukan langsung di database. Bot akan otomatis mendeteksi perubahan tanpa perlu direstart.
+Saat ini jadwal dikelola langsung melalui database.
 
-**Contoh tambah jadwal:**
+Perubahan jadwal akan terbaca otomatis tanpa perlu me-restart aplikasi.
+
+### Menambahkan jadwal
+
+```sql
+INSERT INTO schedules (
+    day_of_week,
+    start_time,
+    end_time,
+    activity
+)
+VALUES (
+    'Tuesday',
+    '09:00',
+    '10:00',
+    'Membaca Buku'
+);
+```
+
+Atau melalui terminal:
+
 ```bash
 docker compose exec -T db psql -U omp -d onemorepercent -c "
-  INSERT INTO schedules (day_of_week, start_time, end_time, activity)
-  VALUES ('Tuesday', '09:00', '10:00', 'Membaca Buku');
+INSERT INTO schedules (
+  day_of_week,
+  start_time,
+  end_time,
+  activity
+)
+VALUES (
+  'Tuesday',
+  '09:00',
+  '10:00',
+  'Membaca Buku'
+);
 "
 ```
-*(Catatan: Hari menggunakan format bahasa Inggris: Monday, Tuesday, dst.)*
+
+### Format hari
+
+Gunakan format bahasa Inggris berikut:
+
+| Indonesia | Format Database |
+| --------- | --------------: |
+| Senin     |          Monday |
+| Selasa    |         Tuesday |
+| Rabu      |       Wednesday |
+| Kamis     |        Thursday |
+| Jumat     |          Friday |
+| Sabtu     |        Saturday |
+| Minggu    |          Sunday |
+
+---
