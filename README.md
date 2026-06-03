@@ -1,423 +1,59 @@
 # One More Percent
 
-> Bot Telegram personal untuk tracking progress harian.  
-> Reminder otomatis, deteksi completion via AI.
+Bot Telegram personal berbasis AI untuk melacak progres harian kamu. Bot ini otomatis mengingatkan jadwalmu dan mendeteksi apakah suatu tugas sudah selesai atau belum melalui obrolan biasa (natural language).
 
----
+## Fitur Utama
+- **Auto-Reminder**: Notifikasi Telegram otomatis sesuai jadwal yang kamu tentukan.
+- **AI Completion**: Bot paham bahasa manusia. Cukup bilang "udah kelar" atau "baru selesai", jadwalmu akan otomatis ditandai selesai.
+- **Context-Aware AI**: Asisten AI tahu jadwalmu saat ini dan merespons obrolan sesuai konteks dengan persona yang fokus pada produktivitas.
+- **Daily Recap**: Setiap tengah malam (00:00 WIB), bot mengirim rangkuman jadwal yang berhasil dan gagal dikerjakan.
 
 ## Tech Stack
+- **Go 1.26** & `net/http`
+- **PostgreSQL 17.5** (`lib/pq` & `golang-migrate`)
+- **Telegram Bot API** (`go-telegram-bot-api/v5`)
+- **Groq API** (`llama-3.3-70b-versatile`) untuk asisten AI
+- **Docker & Docker Compose**
 
-| Layer | Teknologi | Versi |
-|---|---|---|
-| Language | Go | 1.26.3 |
-| HTTP Server | `net/http` | stdlib |
-| Database | PostgreSQL | 17.5-alpine |
-| Telegram | `go-telegram-bot-api` | v5.5.1 |
-| AI | Groq API (`llama-3.3-70b-versatile`) | — |
-| DB Driver | `lib/pq` | v1.12.3 |
-| Migration | `golang-migrate/migrate` | v4.18.3 |
-| Hot Reload | `air` | v1.61.7 |
-| Container | Docker + Docker Compose | — |
+## Cara Menjalankan (via Docker)
 
----
+1. **Persiapan Environment**
+   Copy file `.env.example` dan isi konfigurasinya (terutama Token Bot, ID Telegram, dan API Key Groq).
+   ```bash
+   cp .env.example .env
+   ```
 
-## Struktur Project
+2. **Jalankan Database & Migrasi**
+   ```bash
+   docker compose up -d db
+   docker compose --profile tools run --rm migrate
+   ```
 
-```
-one_more_percent/
-├── app/
-│   └── main.go                          # Entry point: init DB → start scheduler → serve HTTP
-│
-├── internal/
-│   ├── db/
-│   │   └── db.go                        # Koneksi PostgreSQL via lib/pq
-│   │
-│   ├── models/
-│   │   ├── schedule.go                  # Struct Schedule
-│   │   └── progress.go                  # Struct ScheduleProgress
-│   │
-│   ├── services/
-│   │   ├── ai_service.go                # callGroq, AskAI, DetectCompletion, GenerateReminder,
-│   │   │                                #   GenerateRecap, GenerateCompletionReply
-│   │   ├── conversation_service.go      # In-memory rolling history 10 pesan per chatID
-│   │   ├── telegram_service.go          # SendTelegramMessage
-│   │   ├── progress_service.go          # CRUD schedule_progresses, GetActiveSchedule,
-│   │   │                                #   ProgressRowExists
-│   │   └── scheduler_service.go         # Ticker per menit, catch-up check, midnight recap,
-│   │                                    #   in-memory pendingReminders map
-│   │
-│   ├── handlers/
-│   │   ├── telegram_handler.go          # Webhook handler: pending check → intent detect / chat
-│   │   └── healt_handler.go             # GET / health check
-│   │
-│   └── routes/
-│       └── routes.go                    # Route registration
-│
-├── database/
-│   ├── migrations/
-│   │   ├── 000001_create_users.up.sql
-│   │   ├── 000001_create_users.down.sql
-│   │   ├── 000002_create_schedules.up.sql
-│   │   ├── 000002_create_schedules.down.sql
-│   │   ├── 000003_create_schedule_progresses.up.sql
-│   │   └── 000003_create_schedule_progresses.down.sql
-│   │
-│   └── seeders/
-│       └── seed_schedules.sql           # User + jadwal Senin
-│
-├── .air.toml                            # Konfigurasi hot reload
-├── docker-compose.yml
-├── Dockerfile
-├── go.mod
-└── go.sum
-```
+3. **Isi Data Awal (Opsional)**
+   ```bash
+   docker compose exec -T db psql -U omp -d onemorepercent < database/seeders/seed_schedules.sql
+   ```
 
----
+4. **Jalankan Aplikasi**
+   ```bash
+   docker compose up -d app
+   ```
 
-## Database Schema
-
-### `users`
-```sql
-CREATE TABLE users (
-    id          SERIAL PRIMARY KEY,
-    telegram_id BIGINT UNIQUE,
-    name        TEXT NOT NULL,
-    created_at  TIMESTAMP DEFAULT NOW()
-);
-```
-
-### `schedules`
-```sql
-CREATE TABLE schedules (
-    id          SERIAL PRIMARY KEY,
-    user_id     INT NOT NULL REFERENCES users(id),
-    day_of_week VARCHAR(10) NOT NULL,
-    start_time  TIME NOT NULL,
-    end_time    TIME NOT NULL,
-    activity    VARCHAR(100) NOT NULL,
-    is_active   BOOLEAN DEFAULT TRUE,
-    created_at  TIMESTAMP DEFAULT NOW()
-);
-```
-
-### `schedule_progresses`
-```sql
-CREATE TABLE schedule_progresses (
-    id            SERIAL PRIMARY KEY,
-    schedule_id   INT NOT NULL REFERENCES schedules(id),
-    progress_date DATE NOT NULL,
-    status        VARCHAR(20) NOT NULL DEFAULT 'pending',
-    completed_at  TIMESTAMP NULL,
-    created_at    TIMESTAMP DEFAULT NOW(),
-    updated_at    TIMESTAMP DEFAULT NOW(),
-
-    UNIQUE(schedule_id, progress_date)
-);
-```
-
-> **Reset system**: tidak perlu truncate. Besok = progress_date baru = row baru secara implisit. History aman untuk analytics.
-
----
-
-## Alur Sistem Lengkap
-
-### A. Startup Catch-Up
-
-Saat server pertama kali start (atau restart):
-
-```
-StartScheduler()
-    │
-    ├─ LoadLocation("Asia/Jakarta")
-    │
-    └─ runCatchUpCheck()
-           │
-           ├─ GetActiveSchedule(dayName, HH:MM)
-           │       │
-           │       ├─ Tidak ada jadwal aktif sekarang?
-           │       │     → log "nothing to catch up", selesai
-           │       │
-           │       └─ Ada jadwal aktif (misal: Tidur 01:00-05:00)?
-           │             │
-           │             ├─ ProgressRowExists(scheduleID, today)?
-           │             │     → YES: sudah diremind, skip
-           │             │     → NO:  sendReminder() ← kirim sekarang
-           │
-           └─ [sleep hingga menit berikutnya]
-```
-
-**Tujuan**: Jika server restart saat sedang dalam window jadwal, reminder tetap terkirim tanpa harus menunggu menit berikutnya.
-
----
-
-### B. Reminder Rutin (setiap menit)
-
-```
-[Ticker setiap 60 detik, aligned ke batas menit]
-    │
-    └─ runCheck()
-           │
-           ├─ Jam 00:00? → runMidnightRecap(kemarin)
-           │
-           └─ GetSchedulesForDay(dayName)
-                   │
-                   └─ Loop semua jadwal
-                           │
-                           └─ StartTime == HH:MM sekarang?
-                                   │
-                                   └─ sendReminder(schedule, now)
-                                           │
-                                           ├─ EnsureProgressRow (status=pending)
-                                           ├─ SetPendingReminder(chatID, scheduleInfo)
-                                           └─ GenerateReminder → SendTelegramMessage
-```
-
----
-
-### C. User Reply → Completion Detection
-
-```
-[Telegram kirim update ke /webhook]
-    │
-    └─ TelegramWebhookHandler
-           │
-           ├─ GetPendingReminder(chatID)
-           │
-           ├─ Ada pending reminder?
-           │     │
-           │     YES
-           │     │
-           │     └─ DetectCompletion(userMessage)   ← AI intent classification
-           │             │
-           │             ├─ YES ("udah", "done", "selesai", dll)
-           │             │       ├─ MarkCompleted(scheduleID, date)
-           │             │       ├─ ClearPendingReminder(chatID)
-           │             │       └─ GenerateCompletionReply → kirim ke Telegram
-           │             │
-           │             └─ NO ("belum", "nanti", dll)
-           │                     └─ AskAI(chatID, message) → normal chat
-           │
-           └─ Tidak ada pending?
-                   └─ AskAI(chatID, message) → normal chat
-```
-
----
-
-### D. AskAI — Percakapan dengan Context
-
-Setiap kali `AskAI` dipanggil:
-
-```
-AskAI(chatID, message)
-    │
-    ├─ getActiveScheduleContext()
-    │       └─ Query: ada jadwal start ≤ now < end hari ini?
-    │               ├─ Ada  → "[Konteks: Jadwal aktif 'Golang' (13:00-15:00)]"
-    │               └─ Tidak → string kosong
-    │
-    ├─ buildSystemPrompt(scheduleCtx)
-    │       └─ Profil user (Ambatukam, mahasiswa, remote) + konteks jadwal
-    │
-    ├─ GetHistory(chatID)
-    │       └─ Slice 10 pesan terakhir (rolling, thread-safe)
-    │
-    ├─ callGroq([system, ...history, user_message])
-    │
-    ├─ AddMessage(chatID, "user", message)
-    └─ AddMessage(chatID, "assistant", reply)
-```
-
----
-
-### E. Midnight Recap (00:00 WIB)
-
-```
-runMidnightRecap(yesterday)
-    │
-    ├─ MarkAllPendingAsMissed(yesterday)
-    │       └─ UPDATE status='missed' WHERE status='pending' AND date=yesterday
-    │
-    ├─ GetDayProgress(yesterday)
-    │       └─ JOIN schedules + schedule_progresses
-    │               → completed: [English, Golang]
-    │               → missed:    [Portfolio]
-    │
-    └─ GenerateRecap(completed, missed)
-            └─ AI generate recap santai → SendTelegramMessage
-```
-
-**Contoh output recap:**
-```
-
----
-
-## AI Functions
-
-| Fungsi | Input | Output | Dipakai di |
-|---|---|---|---|
-| `callGroq([]Message)` | Full message list | Raw AI string | Semua fungsi di bawah |
-| `AskAI(chatID, msg)` | chatID + pesan user | Balasan chat | Webhook handler |
-| `DetectCompletion(msg)` | Pesan user | `true` / `false` | Webhook handler |
-| `GenerateReminder(activity)` | Nama aktivitas | Teks reminder | Scheduler |
-| `GenerateRecap(completed, missed)` | Slice progress | Teks recap | Midnight scheduler |
-| `GenerateCompletionReply(activity)` | Nama aktivitas | Teks konfirmasi | Webhook handler |
-
-### DetectCompletion — Contoh
-
-```
-"udah bang"            → YES
-"baru selesai english" → YES
-"done"                 → YES
-"finished"             → YES
-
-"belum"                → NO
-"nanti dulu"           → NO
-"masih males"          → NO
-"ga jadi"              → NO
-```
-
----
-
-## Conversation Memory
-
-- Disimpan **in-memory** per `chatID` (map + mutex)
-- Rolling window: **10 pesan terakhir** (5 user + 5 assistant)
-- Diisi setiap call `AskAI`
-- Reset saat server restart (by design — tidak perlu persistent untuk bot personal)
-
-```
-File: internal/services/conversation_service.go
-
-AddMessage(chatID, role, content)  → tambah ke history
-GetHistory(chatID) []Message       → ambil salinan history
-```
-
----
-
-## Setup & Menjalankan
-
-### Syarat
-
-- Docker & Docker Compose
-- Telegram Bot Token → [BotFather](https://t.me/BotFather)
-- Groq API Key → [console.groq.com](https://console.groq.com)
-
-### Langkah-langkah
-
-```bash
-# 1. Isi environment variables
-cp .env.example .env
-# edit .env: isi BOT_TOKEN, TELEGRAM_CHAT_ID, MODEL_TOKEN
-
-# 2. Jalankan database
-docker compose up -d db
-
-# 3. Jalankan migrasi (buat semua tabel)
-docker compose --profile tools run --rm migrate
-
-# 4. Seed data awal (user + jadwal)
-docker compose exec -T db psql -U omp -d onemorepercent \
-  < database/seeders/seed_schedules.sql
-
-# 5. Jalankan aplikasi
-docker compose up -d app
-
-# 6. Cek logs
-docker compose logs -f app
-```
-
-### Set Telegram Webhook
-
-```bash
-# Production (pakai domain public)
-curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
-  -d "url=https://<your-domain>/webhook"
-
-# Development (pakai ngrok)
-ngrok http 8080
-# lalu set webhook ke URL ngrok yang muncul
-```
-
----
+5. **Set Webhook Telegram**
+   Pastikan port 8080 terhubung ke internet (bisa menggunakan domain atau ngrok) lalu set webhook:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" -d "url=https://<your-domain>/webhook"
+   ```
 
 ## Mengelola Jadwal
 
-### Tambah jadwal baru
+Saat ini manajemen jadwal dilakukan langsung di database. Bot akan otomatis mendeteksi perubahan tanpa perlu direstart.
 
+**Contoh tambah jadwal:**
 ```bash
 docker compose exec -T db psql -U omp -d onemorepercent -c "
-  INSERT INTO schedules (user_id, day_of_week, start_time, end_time, activity)
-  VALUES (1, 'Tuesday', '09:00', '10:00', 'Reading');
+  INSERT INTO schedules (day_of_week, start_time, end_time, activity)
+  VALUES ('Tuesday', '09:00', '10:00', 'Membaca Buku');
 "
 ```
-
-Jadwal langsung aktif — scheduler baca DB setiap tick, tidak perlu restart.
-
-### Nonaktifkan jadwal
-
-```bash
-docker compose exec -T db psql -U omp -d onemorepercent -c "
-  UPDATE schedules SET is_active = FALSE WHERE id = 3;
-"
-```
-
-### Lihat semua jadwal
-
-```bash
-docker compose exec -T db psql -U omp -d onemorepercent -c "
-  SELECT id, day_of_week,
-         TO_CHAR(start_time,'HH24:MI') AS start,
-         TO_CHAR(end_time,'HH24:MI') AS end,
-         activity, is_active
-  FROM schedules ORDER BY day_of_week, start_time;
-"
-```
-
-### Nilai `day_of_week` yang valid
-
-```
-Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday
-```
-
----
-
-## HTTP Endpoints
-
-| Method | Path | Keterangan |
-|---|---|---|
-| `GET` | `/` | Health check — returns 200 OK |
-| `POST` | `/webhook` | Telegram webhook receiver |
-
----
-
-## Development
-
-Project pakai **Air** untuk hot reload — file berubah → otomatis rebuild & restart.
-
-```bash
-# Log real-time
-docker compose logs -f app
-
-# Rebuild manual
-docker compose up -d --build app
-
-# Reset database total (hapus semua data + volume)
-docker compose down -v
-
-# Masuk ke psql
-docker compose exec db psql -U omp -d onemorepercent
-```
-
----
-
-## Dependencies
-
-```
-github.com/go-telegram-bot-api/telegram-bot-api/v5  v5.5.1
-github.com/lib/pq                                   v1.12.3
-```
-
-Migration tool (Docker only, profile `tools`):
-```
-migrate/migrate  v4.18.3
-```
+*(Catatan: Hari menggunakan format bahasa Inggris: Monday, Tuesday, dst.)*
